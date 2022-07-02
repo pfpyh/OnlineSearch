@@ -1,12 +1,10 @@
 #pragma once
 
-#include "base/Proxy.hpp"
 #include "OnlineSearchClientProxy.hpp"
 
-namespace OnlineSearch::Types
-{
-class ConnectionInfo;
-} // namespace OnlineSearch::Types
+#include "types/ConnectionInfo.hpp"
+
+#include "request/Requester.hpp"
 
 namespace OnlineSearch::Interface
 {
@@ -15,6 +13,7 @@ class OnlineSearchClient
 {
 protected :
     OnlineSearchClientProxy<ProxyType>* _proxy = nullptr;
+    Request::Requester _requester;
 
 public :
     OnlineSearchClient(OnlineSearchClientProxy<ProxyType>* proxy)
@@ -23,11 +22,11 @@ public :
 public :
     auto connect(const Types::ConnectionInfo& info) -> bool
     {
-        return true;
+        return _requester.connect(info);
     };
     auto disconnect() -> bool
     {
-        return true;
+        return _requester.disconnect();
     };
     auto search(const std::string& input) -> bool
     {
