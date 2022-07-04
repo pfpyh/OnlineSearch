@@ -15,21 +15,15 @@ namespace OnlineSearch::Request
 {
 class Requester
 {
-private :
-    class RequestWorker : public Base::ThreadBase<RequestWorker, bool>
-    {
-    protected :
-        auto _thread_work() -> bool
-        {
-
-        };
-    };
+protected :
+    static constexpr uint8_t MAX_THREAD_COUNT = 8;
+    Base::ThreadPool<bool, MAX_THREAD_COUNT > _t_pool;
 
 public :
     auto connect(const Types::ConnectionInfo& info) -> bool;
     auto disconnect() -> bool;
-    auto search_async(std::string input, std::function<void(std::vector<Types::SearchResult>&)> postwork) -> bool;
-
-
+    auto search_async(std::string input, 
+                      std::function<void()> prework,
+                      std::function<void(std::vector<Types::SearchResult>&&)> postwork) -> bool;
 };
 } // namespace OnlineSearch::Request

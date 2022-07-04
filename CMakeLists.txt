@@ -12,5 +12,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${ROOT_PATH}/bld)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${ROOT_PATH}/bld)
 
+add_definitions(-D__ENABLE_TEST_CODE__)
+
 add_subdirectory(Interface)
 add_subdirectory(Client)

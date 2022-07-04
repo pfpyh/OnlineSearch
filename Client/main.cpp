@@ -3,22 +3,29 @@
 #include "interface/OnlineSearchClient.hpp"
 
 #include <iostream>
+#include <Windows.h>
 
 using namespace OnlineSearch;
 
 class OnlineSearchClientImpl : public Interface::OnlineSearchClientProxy<OnlineSearchClientImpl>
 {
 public :
-    auto _onSearchResultsChanged(std::vector<Types::SearchResult> && results) -> void
+    auto _onSearchResultsChanged(Types::SearchId search_id, std::vector<Types::SearchResult> && results) -> void
     {
-        std::cout << "[onSearchResultsChanged] size=" << results.size() << std::endl;
+        std::cout << "[onSearchResultsChanged] search_id=" << std::to_string(search_id._value) << " size=" << results.size() << std::endl;
         for (auto result : results)
             std::cout << result._result << std::endl;
     };
 
-    auto _onSearchStatusChanged(Types::SearchStatus status) -> void
+    auto _onSearchStatusChanged(Types::SearchId search_id, Types::SearchStatus status) -> void
     {
-        std::cout << "[onSearchResultsChanged] status=" << static_cast<uint8_t>(status) << std::endl;
+        std::string status_str;
+        if (status == Types::SearchStatus::Searching) status_str = "Searching";
+        else if (status == Types::SearchStatus::Done) status_str = "Done";
+        else if (status == Types::SearchStatus::Done_Error) status_str = "Done_Error";
+        else if (status == Types::SearchStatus::Done_NoResults) status_str = "Done_NoResults";
+
+        std::cout << "[onSearchResultsChanged] search_id=" << std::to_string(search_id._value) << " status=" << status_str << std::endl;
     };
 };
 
@@ -34,7 +41,14 @@ void main()
 
     if (client.connect(info))
     {
-        client.search("Temp");
+        for (uint8_t cnt = 0; cnt < 100; ++cnt)
+        {
+            auto search_id = client.search("Temp");
+            std::cout << "Search [searchid=" << std::to_string(search_id._value) << "]" << std::endl;
+        }
     }
+
+    Sleep(1000);
+
     client.disconnect();
 }

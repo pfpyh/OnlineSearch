@@ -1,5 +1,6 @@
 #pragma once
 
+#include "types/SearchId.hpp"
 #include "types/SearchStatus.hpp"
 #include "types/SearchResult.hpp"
 
@@ -13,14 +14,14 @@ template <typename Derived>
 class OnlineSearchClientProxy
 {
 public :
-    auto onSearchStatusChanged(Types::SearchStatus status) -> void
+    auto onSearchStatusChanged(Types::SearchId search_id, Types::SearchStatus status) -> void
     {
-        reinterpret_cast<Derived*>(this)->_onSearchStatusChanged(status);
+        reinterpret_cast<Derived*>(this)->_onSearchStatusChanged(search_id, status);
     };
 
-    auto onSearchResultsChanged(std::vector<Types::SearchResult> results) -> void
+    auto onSearchResultsChanged(Types::SearchId search_id, std::vector<Types::SearchResult> results) -> void
     {
-        reinterpret_cast<Derived*>(this)->_onSearchResultsChanged(std::move(results));
+        reinterpret_cast<Derived*>(this)->_onSearchResultsChanged(search_id, std::move(results));
     };
 };
 } // namespace OnlineSearch::Interface

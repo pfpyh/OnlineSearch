@@ -4,6 +4,7 @@
 #include <memory>
 #include <future>
 #include <mutex>
+#include <queue>
 
 namespace OnlineSearch::Base
 {
@@ -31,42 +32,46 @@ private :
     };
 };
 
-template<typename ReturnType, uint32_t MAX_WORK_CNT>
+template<typename ReturnType, uint8_t MAX_THREAD_COUNT>
 class ThreadPool
 {
-protected :
-    class Thread : public ThreadBase<Thread, ReturnType>
-    {
-    protected :
-        std::function<ReturnType()> _thread_work = nullptr;
-
-    public :
-        Thread(decltype(_thread_work)& thread_work)
-            : _thread_work(thread_work) {};
-    };
-
-protected :
-    uint32_t _work_cnt = 0;
+protected:
+    std::queue<std::shared_ptr<std::promise<void>>> _promises;
     std::mutex _lock;
+    uint8_t _work_cnt;
 
-public :
-    auto add_work( std::function<ReturnType()>& thread_work ) -> decltype(auto)
+public:
+    auto add_work(std::function<ReturnType()> work) -> std::shared_ptr<std::promise<ReturnType>>
     {
-        _lock.lock();
-        if (_work_cnt < MAX_WORK_CNT)
+        auto promise = std::make_shared<std::promise<ReturnType>>();
+        std::thread t([this, promise, work]()
         {
-            Thread t(thread_work);
-            auto future = t.run();
-            _work_cnt++;
+            auto work_promise = std::make_shared<std::promise<void>>();
+            auto work_future = std::make_shared<std::future<void>>(work_promise->get_future());
+            _lock.lock();
+            if (_work_cnt == MAX_THREAD_COUNT)
+            {
+                _promises.emplace(std::move(work_promise));
+                _lock.unlock();
+                work_future->get();
+                _lock.lock();
+                ++_work_cnt;
+            }
+            else ++_work_cnt;
             _lock.unlock();
-            return future;
-        }
-        else
-        {
 
-        }
-        
-        return future;
-    };
+            promise->set_value(work());
+
+            std::lock_guard<std::mutex> lock_guard(_lock);
+            if (!_promises.empty())
+            {
+                _promises.front()->set_value();
+                _promises.pop();
+            }
+            --_work_cnt;
+        });
+        t.detach();
+        return promise;
+    }
 };
 } // namespace OnlineSearch::Base
