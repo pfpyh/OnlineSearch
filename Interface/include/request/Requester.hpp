@@ -3,6 +3,7 @@
 #include "base/Thread.hpp"
 
 #include <string>
+#include <future>
 #include <functional>
 
 namespace OnlineSearch::Types
@@ -17,11 +18,14 @@ class Requester
 {
 protected :
     static constexpr uint8_t MAX_THREAD_COUNT = 8;
-    Base::ThreadPool<bool, MAX_THREAD_COUNT > _t_pool;
+    Base::ThreadPool<void, MAX_THREAD_COUNT > _t_pool;
+
+    bool _activated = false;
+    std::shared_ptr<std::promise<void>> _last_request = nullptr;
 
 public :
     auto connect(const Types::ConnectionInfo& info) -> bool;
-    auto disconnect() -> bool;
+    auto disconnect() -> void;
     auto search_async(std::string input, 
                       std::function<void()> prework,
                       std::function<void(std::vector<Types::SearchResult>&&)> postwork) -> bool;

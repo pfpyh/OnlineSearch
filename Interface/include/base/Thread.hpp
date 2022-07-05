@@ -19,7 +19,7 @@ public:
     {
         _promise = std::make_shared<std::promise<ReturnType>>();
         std::thread t([this]() {
-            _promise->set_value(static_cast<Derived*>(this)->_thread_work());
+            _promise->set_value(static_cast<Proxy*>(this)->_thread_work());
         });
         t.detach();
         return _promise->get_future();
@@ -32,13 +32,20 @@ private :
     };
 };
 
-template<typename ReturnType, uint8_t MAX_THREAD_COUNT>
-class ThreadPool
+template<typename Derived, typename ReturnType, uint8_t MAX_THREAD_COUNT>
+class ThreadPoolBase
 {
 protected:
     std::queue<std::shared_ptr<std::promise<void>>> _promises;
     std::mutex _lock;
     uint8_t _work_cnt;
+
+private :
+    auto set_value(std::shared_ptr<std::promise<ReturnType>> promise, 
+                   std::function<ReturnType()> work) -> void
+    {
+        return static_cast<Proxy*>(this)->_set_value(promise, work);
+    };
 
 public:
     auto add_work(std::function<ReturnType()> work) -> std::shared_ptr<std::promise<ReturnType>>
@@ -60,7 +67,7 @@ public:
             else ++_work_cnt;
             _lock.unlock();
 
-            promise->set_value(work());
+            set_value(promise, work);            
 
             std::lock_guard<std::mutex> lock_guard(_lock);
             if (!_promises.empty())
@@ -72,6 +79,39 @@ public:
         });
         t.detach();
         return promise;
+    }
+
+private :
+    class Proxy : public Derived
+    {
+    public:
+        friend void ThreadPoolBase::set_value(std::shared_ptr<std::promise<ReturnType>>,
+                                              std::function<ReturnType()>);
+    };
+};
+
+template<typename ReturnType, uint8_t MAX_THREAD_COUNT>
+class ThreadPool 
+    : public ThreadPoolBase<ThreadPool<ReturnType, MAX_THREAD_COUNT>, ReturnType, MAX_THREAD_COUNT>
+{
+protected :
+    auto _set_value(std::shared_ptr<std::promise<ReturnType>> promise,
+                    std::function<ReturnType()> work) -> void
+    {
+        promise->set_value(work());
+    };
+};
+
+template<uint8_t MAX_THREAD_COUNT>
+class ThreadPool<void, MAX_THREAD_COUNT> 
+    : public ThreadPoolBase<ThreadPool<void, MAX_THREAD_COUNT>, void, MAX_THREAD_COUNT>
+{
+protected:
+    auto _set_value(std::shared_ptr<std::promise<void>>& promise,
+                    std::function<void()> work) -> void
+    {
+        work();
+        promise->set_value();
     }
 };
 } // namespace OnlineSearch::Base

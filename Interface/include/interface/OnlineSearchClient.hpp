@@ -26,9 +26,9 @@ public :
     {
         return _requester.connect(info);
     };
-    auto disconnect() -> bool
+    auto disconnect() -> void
     {
-        return _requester.disconnect();
+        _requester.disconnect();
     };
     auto search(const std::string& input) -> Types::SearchId
     {

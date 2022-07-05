@@ -6,49 +6,52 @@
 #if defined(__ENABLE_TEST_CODE__)
 #include <Windows.h>
 #include <random>
+#include <iostream>
 #endif
 
 namespace OnlineSearch::Request
 {
 auto Requester::connect(const Types::ConnectionInfo& info) -> bool
 {
+    _activated = true;
     return true;
 };
 
-auto Requester::disconnect() -> bool
+auto Requester::disconnect() -> void
 {
-    return true;
+    _activated = false;
+    if (_last_request)
+        _last_request->get_future().wait();
 };
 
 auto Requester::search_async(std::string input, 
                              std::function<void()> prework,
                              std::function<void(std::vector<Types::SearchResult>&&)> postwork) -> bool
 {
-    _t_pool.add_work([prework, postwork]()->bool {
+    if (!_activated) return false;
+
+    _last_request = _t_pool.add_work([prework, postwork, input]() {
 #if defined(__ENABLE_TEST_CODE__)
         prework();
-
-        Sleep(100);
 
         // 일부로 지연을 발생시키기 위한 난수 생성
         std::random_device rd;
         std::mt19937 gen(rd());
-        std::uniform_int_distribution<int32_t> dis(5000, 10000);
+        std::uniform_int_distribution<int32_t> dis(500, 1200);
         const int32_t delay = dis(gen);
-
-        std::vector<Types::SearchResult> results;
-        {
-            Types::SearchResult result;
-            result._result = "Temp" + std::to_string(delay);
-            results.push_back(std::move(result));
-        }
 
         // 강제 지연
         Sleep(delay);
 
+        std::vector<Types::SearchResult> results;
+        {
+            Types::SearchResult result;
+            result._result = input;
+            results.push_back(std::move(result));
+        }
+
         postwork(std::move(results));
 #endif
-        return true;
     });
     return true;
 };
