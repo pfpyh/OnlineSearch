@@ -35,10 +35,46 @@ private :
 template<typename Derived, typename ReturnType, uint8_t MAX_THREAD_COUNT>
 class ThreadPoolBase
 {
-protected:
+protected :
+    class Count
+    {
+    public :
+        uint8_t _value = 0;
+        std::shared_ptr<std::promise<void>> _wait_finish = nullptr;
+
+    public :
+        Count& operator++()
+        {
+            ++_value;
+            return (*this);
+        };
+
+        Count& operator--()
+        {
+            --_value;
+            if (_value == 0 && _wait_finish)
+                _wait_finish->set_value();
+            return (*this);
+        };
+
+        bool operator==(uint8_t value)
+        {
+            return _value == value;
+        }
+
+    public :
+        auto wait_finish() -> std::future<void>
+        {
+            _wait_finish = std::make_shared<std::promise<void>>();
+            return _wait_finish->get_future();
+        };
+    };
+
+protected :
     std::queue<std::shared_ptr<std::promise<void>>> _promises;
+
     std::mutex _lock;
-    uint8_t _work_cnt;
+    Count _work_cnt;
 
 private :
     auto set_value(std::shared_ptr<std::promise<ReturnType>> promise, 
@@ -54,7 +90,7 @@ public:
         std::thread t([this, promise, work]()
         {
             auto work_promise = std::make_shared<std::promise<void>>();
-            auto work_future = std::make_shared<std::future<void>>(work_promise->get_future());
+            auto work_future = std::make_shared<std::shared_future<void>>(work_promise->get_future());
             _lock.lock();
             if (_work_cnt == MAX_THREAD_COUNT)
             {
@@ -67,7 +103,7 @@ public:
             else ++_work_cnt;
             _lock.unlock();
 
-            set_value(promise, work);            
+            set_value(promise, work);
 
             std::lock_guard<std::mutex> lock_guard(_lock);
             if (!_promises.empty())
@@ -79,7 +115,12 @@ public:
         });
         t.detach();
         return promise;
-    }
+    };
+
+    auto wait_finish() -> std::future<void>
+    {
+        return _work_cnt.wait_finish();
+    };
 
 private :
     class Proxy : public Derived

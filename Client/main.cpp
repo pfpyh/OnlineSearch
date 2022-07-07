@@ -18,11 +18,7 @@ public :
 public :
     auto _onSearchResultsChanged(Types::SearchId search_id, std::vector<Types::SearchResult> && results) -> void
     {
-        if (search_id._value > 100)
-        {
-            std::cout << "[_onSearchResultsChanged][" << std::to_string(search_id._value) << "]" << std::endl;
-        }
-        //std::cout << "[onSearchResultsChanged][" << std::to_string(search_id._value) << "] " << std::endl;
+
     };
 
     auto _onSearchStatusChanged(Types::SearchId search_id, Types::SearchStatus status) -> void
@@ -32,11 +28,6 @@ public :
         else if (status == Types::SearchStatus::Done) status_str = "Done";
         else if (status == Types::SearchStatus::Done_Error) status_str = "Done_Error";
         else if (status == Types::SearchStatus::Done_NoResults) status_str = "Done_NoResults";
-
-        if (search_id._value > 100)
-        {
-            std::cout << "[_onSearchStatusChanged][" << std::to_string(search_id._value) << "] " << status_str << std::endl;
-        }
 
         std::lock_guard<std::mutex> scoped_lock(_lcok);
         if (status == Types::SearchStatus::Searching)
@@ -64,8 +55,7 @@ void main()
         {
             auto search_id = client.search("Temp");
         }
-    }
-    Sleep(1000);
+    }    
     client.disconnect();
 
     decltype(Types::SearchId::_value) done_list[loop_cnt] = { 0, };
@@ -83,7 +73,7 @@ void main()
 
     std::string searching_str;
     for (uint16_t id = 0; id < loop_cnt; ++id)
-        if (searching_list[id] == 1)
+        if (searching_list[id] == 0)
             searching_str += std::to_string(id + 1) + ", ";
 
     std::cout << "Searching job = " << searching_str << std::endl;

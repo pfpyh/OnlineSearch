@@ -15,7 +15,7 @@ class OnlineSearchClient
 protected :
     OnlineSearchClientProxy<ProxyType>* _proxy = nullptr;
     Request::Requester _requester;
-    decltype(Types::SearchId::_value) _last_search_id = Types::SearchId::INVALID_ID;
+    Types::SearchId _search_id;
 
 public :
     OnlineSearchClient(OnlineSearchClientProxy<ProxyType>* proxy)
@@ -32,12 +32,11 @@ public :
     };
     auto search(const std::string& input) -> Types::SearchId
     {
-        if (_last_search_id > Types::SearchId::MAX_ID)
-            _last_search_id = Types::SearchId::INVALID_ID;
-        ++_last_search_id;
+        if (_search_id._value > Types::SearchId::MAX_ID)
+            _search_id._value = Types::SearchId::INVALID_ID;
+        ++_search_id._value;
 
-        Types::SearchId search_id;
-        search_id._value = _last_search_id;
+        const auto search_id = _search_id;
 
         auto rtn = _requester.search_async(input, 
                                            [this, search_id]() {

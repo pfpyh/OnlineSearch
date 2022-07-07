@@ -21,7 +21,8 @@ protected :
     Base::ThreadPool<void, MAX_THREAD_COUNT > _t_pool;
 
     bool _activated = false;
-    std::shared_ptr<std::promise<void>> _last_request = nullptr;
+    std::mutex _lock;
+    std::vector<std::future<void>> _futures;
 
 public :
     auto connect(const Types::ConnectionInfo& info) -> bool;

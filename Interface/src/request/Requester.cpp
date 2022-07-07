@@ -20,8 +20,7 @@ auto Requester::connect(const Types::ConnectionInfo& info) -> bool
 auto Requester::disconnect() -> void
 {
     _activated = false;
-    if (_last_request)
-        _last_request->get_future().wait();
+    _t_pool.wait_finish().wait();
 };
 
 auto Requester::search_async(std::string input, 
@@ -30,7 +29,7 @@ auto Requester::search_async(std::string input,
 {
     if (!_activated) return false;
 
-    _last_request = _t_pool.add_work([prework, postwork, input]() {
+    _futures.push_back(std::move(_t_pool.add_work([prework, postwork, input]() {
 #if defined(__ENABLE_TEST_CODE__)
         prework();
 
@@ -52,7 +51,7 @@ auto Requester::search_async(std::string input,
 
         postwork(std::move(results));
 #endif
-    });
+    })->get_future()));
     return true;
 };
 } // namespace OnlineSearch::Request
