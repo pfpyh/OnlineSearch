@@ -23,12 +23,6 @@ public :
 
     auto _onSearchStatusChanged(Types::SearchId search_id, Types::SearchStatus status) -> void
     {
-        std::string status_str;
-        if (status == Types::SearchStatus::Searching) status_str = "Searching";
-        else if (status == Types::SearchStatus::Done) status_str = "Done";
-        else if (status == Types::SearchStatus::Done_Error) status_str = "Done_Error";
-        else if (status == Types::SearchStatus::Done_NoResults) status_str = "Done_NoResults";
-
         std::lock_guard<std::mutex> scoped_lock(_lcok);
         if (status == Types::SearchStatus::Searching)
             _searching.push_back(search_id._value);

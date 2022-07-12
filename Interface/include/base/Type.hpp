@@ -8,5 +8,4 @@ class Type
 public :
     T _value = INIT_VALUE;
 };
-
 } // namespace OnlineSearch::Base
