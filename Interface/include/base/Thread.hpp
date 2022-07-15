@@ -4,6 +4,7 @@
 #include <memory>
 #include <future>
 #include <mutex>
+#include <queue>
 
 namespace OnlineSearch::Base
 {
@@ -18,7 +19,7 @@ public:
     {
         _promise = std::make_shared<std::promise<ReturnType>>();
         std::thread t([this]() {
-            _promise->set_value(static_cast<Derived*>(this)->_thread_work());
+            _promise->set_value(static_cast<Proxy*>(this)->_thread_work());
         });
         t.detach();
         return _promise->get_future();
@@ -31,42 +32,127 @@ private :
     };
 };
 
-template<typename ReturnType, uint32_t MAX_WORK_CNT>
-class ThreadPool
+template<typename Derived, typename ReturnType, uint8_t MAX_THREAD_COUNT>
+class ThreadPoolBase
 {
 protected :
-    class Thread : public ThreadBase<Thread, ReturnType>
+    class Count
     {
-    protected :
-        std::function<ReturnType()> _thread_work = nullptr;
+    public :
+        uint8_t _value = 0;
+        std::shared_ptr<std::promise<void>> _wait_finish = nullptr;
 
     public :
-        Thread(decltype(_thread_work)& thread_work)
-            : _thread_work(thread_work) {};
+        Count& operator++()
+        {
+            ++_value;
+            return (*this);
+        };
+
+        Count& operator--()
+        {
+            --_value;
+            if (_value == 0 && _wait_finish)
+                _wait_finish->set_value();
+            return (*this);
+        };
+
+        bool operator==(uint8_t value)
+        {
+            return _value == value;
+        }
+
+    public :
+        auto wait_finish() -> std::future<void>
+        {
+            _wait_finish = std::make_shared<std::promise<void>>();
+            return _wait_finish->get_future();
+        };
     };
 
 protected :
-    uint32_t _work_cnt = 0;
+    std::queue<std::shared_ptr<std::promise<void>>> _promises;
+
     std::mutex _lock;
+    Count _work_cnt;
 
-public :
-    auto add_work( std::function<ReturnType()>& thread_work ) -> decltype(auto)
+private :
+    auto set_value(std::shared_ptr<std::promise<ReturnType>> promise, 
+                   std::function<ReturnType()> work) -> void
     {
-        _lock.lock();
-        if (_work_cnt < MAX_WORK_CNT)
-        {
-            Thread t(thread_work);
-            auto future = t.run();
-            _work_cnt++;
-            _lock.unlock();
-            return future;
-        }
-        else
-        {
-
-        }
-        
-        return future;
+        return static_cast<Proxy*>(this)->_set_value(promise, work);
     };
+
+public:
+    auto add_work(std::function<ReturnType()> work) -> std::shared_ptr<std::promise<ReturnType>>
+    {
+        auto promise = std::make_shared<std::promise<ReturnType>>();
+        std::thread t([this, promise, work]()
+        {
+            auto work_promise = std::make_shared<std::promise<void>>();
+            auto work_future = std::make_shared<std::shared_future<void>>(work_promise->get_future());
+            _lock.lock();
+            if (_work_cnt == MAX_THREAD_COUNT)
+            {
+                _promises.emplace(std::move(work_promise));
+                _lock.unlock();
+                work_future->get();
+                _lock.lock();
+                ++_work_cnt;
+            }
+            else ++_work_cnt;
+            _lock.unlock();
+
+            set_value(promise, work);
+
+            std::lock_guard<std::mutex> lock_guard(_lock);
+            if (!_promises.empty())
+            {
+                _promises.front()->set_value();
+                _promises.pop();
+            }
+            --_work_cnt;
+        });
+        t.detach();
+        return promise;
+    };
+
+    auto wait_finish() -> std::future<void>
+    {
+        return _work_cnt.wait_finish();
+    };
+
+private :
+    class Proxy : public Derived
+    {
+    public:
+        friend void ThreadPoolBase::set_value(std::shared_ptr<std::promise<ReturnType>>,
+                                              std::function<ReturnType()>);
+    };
+};
+
+template<typename ReturnType, uint8_t MAX_THREAD_COUNT>
+class ThreadPool 
+    : public ThreadPoolBase<ThreadPool<ReturnType, MAX_THREAD_COUNT>, ReturnType, MAX_THREAD_COUNT>
+{
+protected :
+    auto _set_value(std::shared_ptr<std::promise<ReturnType>> promise,
+                    std::function<ReturnType()> work) -> void
+    {
+        promise->set_value(work());
+    };
+};
+
+template<uint8_t MAX_THREAD_COUNT>
+class ThreadPool<void, MAX_THREAD_COUNT> 
+    : public ThreadPoolBase<ThreadPool<void, MAX_THREAD_COUNT>, void, MAX_THREAD_COUNT>
+{
+protected:
+    auto _set_value(std::shared_ptr<std::promise<void>>& promise,
+                    std::function<void()> work) -> void
+    {
+        work();
+        promise->set_value();
+    }
 };
 } // namespace OnlineSearch::Base

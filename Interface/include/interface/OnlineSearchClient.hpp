@@ -3,6 +3,7 @@
 #include "OnlineSearchClientProxy.hpp"
 
 #include "types/ConnectionInfo.hpp"
+#include "types/SearchId.hpp"
 
 #include "request/Requester.hpp"
 
@@ -14,6 +15,7 @@ class OnlineSearchClient
 protected :
     OnlineSearchClientProxy<ProxyType>* _proxy = nullptr;
     Request::Requester _requester;
+    Types::SearchId _search_id;
 
 public :
     OnlineSearchClient(OnlineSearchClientProxy<ProxyType>* proxy)
@@ -24,22 +26,33 @@ public :
     {
         return _requester.connect(info);
     };
-    auto disconnect() -> bool
+    auto disconnect() -> void
     {
-        return _requester.disconnect();
+        _requester.disconnect();
     };
-    auto search(const std::string& input) -> bool
+    auto search(const std::string& input) -> Types::SearchId
     {
-        _proxy->onSearchStatusChanged(Types::SearchStatus::Searching);
-        std::vector<Types::SearchResult> results;
-        {
-            Types::SearchResult result;
-            result._result = "Test";
-            results.push_back(std::move(result));
-        }
-        _proxy->onSearchResultsChanged(std::move(results));
-        _proxy->onSearchStatusChanged(Types::SearchStatus::Done);
-        return true;
+        if (_search_id._value > Types::SearchId::MAX_ID)
+            _search_id._value = Types::SearchId::INVALID_ID;
+        ++_search_id._value;
+
+        const auto search_id = _search_id;
+
+        auto rtn = _requester.search_async(input, 
+                                           [this, search_id]() {
+            _proxy->onSearchStatusChanged(search_id, Types::SearchStatus::Searching);
+        },[this, search_id](std::vector<Types::SearchResult>&& results) {
+            if (!results.empty())
+            {
+                _proxy->onSearchResultsChanged(search_id, results);
+                _proxy->onSearchStatusChanged(search_id, Types::SearchStatus::Done);
+            }
+            else _proxy->onSearchStatusChanged(search_id, Types::SearchStatus::Done_NoResults);
+        });
+
+        if (!rtn) _proxy->onSearchStatusChanged(search_id, Types::SearchStatus::Done_Error);
+
+        return search_id;
     };
 };
 } // namespace OnlineSearch::Interface
