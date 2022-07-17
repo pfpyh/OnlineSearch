@@ -16,12 +16,19 @@ class OnlineSearchClientProxy
 public :
     auto onSearchStatusChanged(Types::SearchId search_id, Types::SearchStatus status) -> void
     {
-        reinterpret_cast<Derived*>(this)->_onSearchStatusChanged(search_id, status);
+        static_cast<Proxy*>(this)->_onSearchStatusChanged(search_id, status);
     };
 
     auto onSearchResultsChanged(Types::SearchId search_id, std::vector<Types::SearchResult> results) -> void
     {
-        reinterpret_cast<Derived*>(this)->_onSearchResultsChanged(search_id, std::move(results));
+        static_cast<Proxy*>(this)->_onSearchResultsChanged(search_id, std::move(results));
     };
+
+private :
+    class Proxy : public Derived
+    {
+        friend void OnlineSearchClientPrixy::onSearchStatusChanged(Types::SearchId, Types::SearchStatus);
+        friend void OnlineSearchClientProxy::onSearchResultsChanged(Types::SearchId, std::vector<Types::SearchResult>);
+    }
 };
 } // namespace OnlineSearch::Interface

@@ -16,5 +16,6 @@ add_definitions(-D__ENABLE_TEST_CODE__)
 
 link_directories(${ROOT_PATH}/libs)
 
-add_subdirectory(Interface)
-add_subdirectory(Client)
+add_subdirectory(interface)
+add_subdirectory(server)
+add_subdirectory(client)

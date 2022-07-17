@@ -1,25 +1,26 @@
-//#pragma once
-//
-//namespace OnlineSearch::Interface::Server
-//{
-//template <typename Derived>
-//class OnlineSearchServerProxy
-//{
-//public :
-//    auto initialize() -> bool { 
-//        return reinterpret_cast<Derived*>(this)->_initialize(); 
-//    }
-//
-//    auto finalize() -> bool {
-//        return reinterpret_cast<Derived*>(this)->_finalize();
-//    }
-//
-//    auto requestSearch(std::string keyword) -> bool {
-//        return reinterpret_cast<Derived*>(this)->_requestSearch(std::move(keyword));
-//    }
-//
-//    auto notifyResult() -> void {
-//        
-//    }
-//};
-//} // namespace OnlineSearch::Interface::Server
+#pragma once
+
+namespace OnlineSearch::Interface
+{
+template <typename Derived>
+class OnlineSearchServerProxy
+{
+public :
+    auto initialize() -> bool 
+    { 
+        return static_cast<Proxy*>(this)->_initialize();
+    }
+
+    auto finalize() -> bool 
+    {
+        return static_cast<Proxy*>(this)->_finalize();
+    }
+
+private :
+    class Proxy : public Derived
+    {
+        friend bool OnlineSearchServerProxy::initialize();
+        friend bool OnlineSearchServerProxy::finalize();
+    };
+};
+} // namespace OnlineSearch::Interface
